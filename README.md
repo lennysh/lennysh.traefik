@@ -8,16 +8,16 @@ Ansible collection for working with [Traefik](https://traefik.io/). It includes 
 
 ## Installation
 
-After the collection is published to Ansible Galaxy:
-
-```bash
-ansible-galaxy collection install lennysh.traefik
-```
-
 Directly from this repository:
 
 ```bash
 ansible-galaxy collection install git+https://github.com/lennysh/lennysh.traefik.git
+```
+
+After the collection is published to Ansible Galaxy:
+
+```bash
+ansible-galaxy collection install lennysh.traefik
 ```
 
 From a local checkout of this repository (collection root = repo root):
