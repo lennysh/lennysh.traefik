@@ -1,0 +1,4 @@
+ignore_*
+traefik_certs/
+exported_certs/
+.ansible/

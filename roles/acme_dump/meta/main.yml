@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  role_name: acme_dump
+  author: lennysh
+  description: Parse Traefik acme.json and export certificates to flat PEM files.
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: GenericLinux
+  galaxy_tags:
+    - traefik
+    - acme
+    - tls
+dependencies: []

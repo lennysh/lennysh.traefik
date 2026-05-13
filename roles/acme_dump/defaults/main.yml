@@ -1,0 +1,9 @@
+---
+# Path to Traefik acme.json (JSON storage, not the deprecated file-based layout).
+acme_dump_json_path: ""
+
+# Directory where each certificate is written under <safe_domain>/fullchain.pem and privkey.pem
+acme_dump_export_dir: "{{ playbook_dir }}/exported_certs"
+
+# If true, prepend resolver name when building directory names (avoids collisions across resolvers).
+acme_dump_export_prefix_resolver: false

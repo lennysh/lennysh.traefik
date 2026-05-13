@@ -1,0 +1,115 @@
+---
+- name: Ensure acme_dump_json_path is set
+  ansible.builtin.assert:
+    that:
+      - acme_dump_json_path | length > 0
+    fail_msg: "Set acme_dump_json_path to your acme.json file (absolute or relative path)."
+
+- name: Check acme.json exists
+  ansible.builtin.stat:
+    path: "{{ acme_dump_json_path }}"
+  register: _acme_dump_stat
+
+- name: Fail when acme.json is missing
+  ansible.builtin.fail:
+    msg: "acme.json not found at {{ acme_dump_json_path }}"
+  when: not _acme_dump_stat.stat.exists | default(false)
+
+- name: Read acme.json (base64 slurp)
+  ansible.builtin.slurp:
+    path: "{{ acme_dump_json_path }}"
+  register: _acme_dump_slurp
+
+- name: Parse acme.json into acme_dump_parsed
+  ansible.builtin.set_fact:
+    acme_dump_parsed: "{{ _acme_dump_slurp.content | b64decode | from_json }}"
+
+- name: Build per-certificate export jobs
+  ansible.builtin.set_fact:
+    acme_dump_export_jobs: "{{ acme_dump_export_jobs | default([]) + [_job] }}"
+  vars:
+    _basename: >-
+      {{
+        (acme_dump_export_prefix_resolver | bool)
+        | ternary(item.0.key ~ '_', '')
+      }}{{
+        item.1.domain.main
+        | regex_replace('^\*\.', '_wildcard.')
+        | regex_replace('[^a-zA-Z0-9._-]', '_')
+      }}
+    _job:
+      resolver: "{{ item.0.key }}"
+      domain_main: "{{ item.1.domain.main }}"
+      sans: "{{ item.1.domain.sans | default([]) }}"
+      safe_dir: "{{ _basename }}"
+      certificate: "{{ item.1.certificate }}"
+      key: "{{ item.1.key }}"
+  loop: "{{ acme_dump_parsed | dict2items | subelements('value.Certificates', skip_missing=True) }}"
+  no_log: true
+
+- name: Ensure no export jobs implies empty or nonstandard acme.json
+  ansible.builtin.debug:
+    msg: >-
+      No Certificates entries found under any resolver key.
+      If you use a different Traefik storage layout, adjust parsing.
+  when: acme_dump_export_jobs | default([]) | length == 0
+
+- name: Create export directory layout
+  ansible.builtin.file:
+    path: "{{ acme_dump_export_dir }}/{{ item.safe_dir }}"
+    state: directory
+    mode: "0700"
+  loop: "{{ acme_dump_export_jobs | default([]) }}"
+  loop_control:
+    label: "{{ item.safe_dir }}"
+
+- name: Write full certificate chain (PEM)
+  ansible.builtin.copy:
+    dest: "{{ acme_dump_export_dir }}/{{ item.safe_dir }}/fullchain.pem"
+    content: "{{ item.certificate | b64decode }}{% if not (item.certificate | b64decode).endswith('\n') %}\n{% endif %}"
+    mode: "0644"
+    force: true
+  loop: "{{ acme_dump_export_jobs | default([]) }}"
+  loop_control:
+    label: "{{ item.safe_dir }}/fullchain.pem"
+
+- name: Write leaf certificate only (first PEM in chain)
+  ansible.builtin.copy:
+    dest: "{{ acme_dump_export_dir }}/{{ item.safe_dir }}/cert.pem"
+    content: >-
+      {% set _pem = item.certificate | b64decode %}
+      {% set _end = '-----END CERTIFICATE-----' %}
+      {% if _end in _pem %}
+      {{ _pem.split(_end)[0] ~ _end ~ '\n' }}
+      {% else %}
+      {{ _pem }}{% if not _pem.endswith('\n') %}\n{% endif %}
+      {% endif %}
+    mode: "0644"
+    force: true
+  loop: "{{ acme_dump_export_jobs | default([]) }}"
+  loop_control:
+    label: "{{ item.safe_dir }}/cert.pem"
+
+- name: Write private key (PEM)
+  ansible.builtin.copy:
+    dest: "{{ acme_dump_export_dir }}/{{ item.safe_dir }}/privkey.pem"
+    content: "{{ item.key | b64decode }}{% if not (item.key | b64decode).endswith('\n') %}\n{% endif %}"
+    mode: "0600"
+    force: true
+  loop: "{{ acme_dump_export_jobs | default([]) }}"
+  loop_control:
+    label: "{{ item.safe_dir }}/privkey.pem"
+  no_log: true
+
+- name: Write domain metadata (no secrets)
+  ansible.builtin.copy:
+    dest: "{{ acme_dump_export_dir }}/{{ item.safe_dir }}/domain.txt"
+    content: |
+      main={{ item.domain_main }}
+      sans={{ item.sans | join(',') }}
+      resolver={{ item.resolver }}
+    mode: "0644"
+    force: true
+  loop: "{{ acme_dump_export_jobs | default([]) }}"
+  loop_control:
+    label: "{{ item.safe_dir }}/domain.txt"

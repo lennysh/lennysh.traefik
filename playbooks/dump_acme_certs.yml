@@ -1,0 +1,17 @@
+---
+# Export Traefik ACME certificates from acme.json to PEM files on the control node.
+# Run from repo root:
+#   ansible-playbook playbooks/dump_acme_certs.yml
+# Or override paths:
+#   ansible-playbook playbooks/dump_acme_certs.yml -e acme_dump_json_path=/path/to/acme.json -e acme_dump_export_dir=/path/to/out
+
+- name: Dump Traefik ACME certificates to PEM files
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    _repo_root: "{{ playbook_dir | dirname }}"
+    acme_dump_json_path: "{{ _repo_root }}/traefik_certs/acme.json"
+    acme_dump_export_dir: "{{ _repo_root }}/exported_certs"
+  roles:
+    - role: lennysh.traefik.acme_dump
