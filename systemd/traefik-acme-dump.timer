@@ -1,0 +1,12 @@
+[Unit]
+Description=Hourly Traefik ACME cert export (ansible-playbook)
+Documentation=https://github.com/lennysh/lennysh.traefik
+
+[Timer]
+# Top of every hour (wall clock). Use "OnUnitActiveSec=1h" for "every hour since last run" instead.
+OnCalendar=*-*-* *:00:00
+AccuracySec=1m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=Export Traefik ACME certs from acme.json via Ansible
+Documentation=https://github.com/lennysh/lennysh.traefik
+
+[Service]
+Type=oneshot
+# Run as root by default so /certs paths match your setup; set User=/Group= if needed.
+ExecStart=/usr/local/bin/ansible-playbook lennysh.traefik.dump_acme_certs \
+  -e acme_dump_json_path=/certs/le-cloudflare.json \
+  -e acme_dump_export_dir=/certs/exported
+# If the collection is only in a user’s home, set User= and optionally:
+# Environment=ANSIBLE_COLLECTIONS_PATH=/path/to/collections
+
+[Install]
+WantedBy=multi-user.target
